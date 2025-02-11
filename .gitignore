@@ -1,0 +1,4 @@
+# Ignore Excel and OpenDocument spreadsheet files
+*.xlsx
+*.xls
+*.ods
