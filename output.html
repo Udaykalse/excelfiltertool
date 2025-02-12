@@ -1,56 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Excel Data</title>
-    <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid black;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-    </style>
+    <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-    <h2>Excel Data</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Row</th>
-                <th>Col 1</th>
-                <th>Col 2</th>
-                <th>Col 3</th>
-                <th>Col 4</th>
-            </tr>
-        </thead>
-        <tbody id="table-body">
-        </tbody>
-    </table>
+    <div class="container">
+        <h2>Excel Data</h2>
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search..." onkeyup="filterTable()" />
+        <div id="resultsCount" class="results-count"></div>
+            
+    <button id="goBottom" class="scroll-btn" onclick="scrollToBottom()">⬇️</button>
+    
+        <button id="deleteSelected" class="delete-btn" onclick="deleteSelectedRows()">🗑️ Delete Selected</button>
+        
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" /></th>
+                    <th onclick="sortTable('Row')">Row ⬍</th>
+                    <th onclick="sortTable('Col2')">Col 2 ⬍</th>
+                    <th onclick="sortTable('Col3')">Col 3 ⬍</th>
+                    <th onclick="sortTable('Col4')">Col 4 ⬍</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+    <button id="goTop" class="scroll-btn" onclick="scrollToTop()">⬆️</button>
+
     <script>
+        let tableData = [];
+        let sortOrder = {}; 
+
         fetch("output.json")
             .then(response => response.json())
             .then(data => {
-                const tableBody = document.getElementById("table-body");
-                data.forEach(row => {
-                    let tr = document.createElement("tr");
-                    tr.innerHTML = `
-                        <td>${row.Row}</td>
-                        <td>${row.Col1}</td>
-                        <td>${row.Col2}</td>
-                        <td>${row.Col3}</td>
-                        <td>${row.Col4}</td>
-                    `;
-                    tableBody.appendChild(tr);
-                });
+                tableData = data;
+                renderTable(data);
+                updateResultsCount(data.length);
+            })
+            .catch(error => console.error("❌ Failed to load data:", error));
+
+        function renderTable(data, highlight = "") {
+            const tableBody = document.getElementById("table-body");
+            tableBody.innerHTML = "";
+            data.forEach((row, index) => {
+                let tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><input type="checkbox" class="rowCheckbox" data-index="${index}" /></td>
+                    <td>${row.Row || "(empty)"}</td>
+                    <td>${highlightText(row.Col2, highlight)}</td>
+                    <td>${highlightText(row.Col3, highlight)}</td>
+                    <td>${highlightText(row.Col4, highlight)}</td>
+                `;
+                tableBody.appendChild(tr);
             });
+        }
+
+        function filterTable() {
+            const searchValue = document.getElementById("searchInput").value.toLowerCase().trim();
+            if (!searchValue) {
+                renderTable(tableData);
+                updateResultsCount(tableData.length);
+                return;
+            }
+            const filteredData = tableData.filter(row =>
+                Object.values(row).some(value =>
+                    String(value || "").toLowerCase().includes(searchValue)
+                )
+            );
+            renderTable(filteredData, searchValue);
+            updateResultsCount(filteredData.length);
+        }
+
+        function highlightText(text, searchValue) {
+            if (!searchValue || !text) return text || "(empty)";
+            const regex = new RegExp(`(${searchValue})`, "gi");
+            return text.replace(regex, `<span class="highlight">$1</span>`);
+        }
+
+        function updateResultsCount(count) {
+            document.getElementById("resultsCount").textContent = `Total results found: ${count}`;
+        }
+
+        function scrollToBottom() {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+        }
+        
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        function toggleSelectAll(checkbox) {
+            const checkboxes = document.querySelectorAll(".rowCheckbox");
+            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        }
+
+        function deleteSelectedRows() {
+            const selectedIndexes = [...document.querySelectorAll(".rowCheckbox:checked")].map(cb => parseInt(cb.dataset.index));
+            tableData = tableData.filter((_, index) => !selectedIndexes.includes(index));
+            renderTable(tableData);
+            updateResultsCount(tableData.length);
+        }
+
+        function sortTable(column) {
+            sortOrder[column] = !sortOrder[column];
+            tableData.sort((a, b) => {
+                let valA = a[column] ? a[column].toString().toLowerCase() : "";
+                let valB = b[column] ? b[column].toString().toLowerCase() : "";
+                return sortOrder[column] ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            });
+            renderTable(tableData);
+        }
     </script>
 </body>
 </html>
